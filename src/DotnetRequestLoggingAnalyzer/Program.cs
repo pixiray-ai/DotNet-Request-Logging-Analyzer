@@ -1,21 +1,53 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 using Serilog.Sinks.InMemory;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add Logger
 builder.Logging.ClearProviders();
+//TODO: Add Serilog     .WriteTo.InMemory()
 var logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.InMemory()
     .Enrich.FromLogContext()
     .CreateLogger();
 builder.Logging.AddSerilog(logger);
 
-// Add services to the container.
-builder.Services.AddRazorPages();
+string[] ips = { };
+
+var envProxies = Environment.GetEnvironmentVariable("KNOWN_PROXIES");
+logger.Information("KNOWN_PROXIES: {KNOWN_PROXIES}", envProxies);
+if (!string.IsNullOrEmpty(envProxies))
+{
+    ips = envProxies.Split(",");
+}
+
+
+if (ips.Length > 0)
+{
+    logger.Information("Adding Forwarded Headers");
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        foreach (var ip in ips)
+        {
+            logger.Information("Adding Forwarded Header: {ip}", ip);
+            options.KnownProxies.Add(IPAddress.Parse(ip));
+        }
+    });
+}
+
+//TODO: Add ViewEngine
+//builder.Services.AddRazorPages();
 
 var app = builder.Build();
+
+if (ips.Length > 0)
+{
+    app.UseForwardedHeaders();
+    logger.Information("Using Forwarded Headers enabled");
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -43,13 +75,26 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.MapGet("/", async (HttpContext context) =>
+{
+    Log.Information("{DateTime.UtcNow} ><> {context}");
+    return Results.Ok("hello world again");
+});
 
-app.UseRouting();
+//app.MapGet("/test/", () => "Hello World Test!");
+app.MapGet("/test/{id}", async (string id, HttpContext context) =>
+{
+    Log.Information("{DateTime.UtcNow} ><> {context} ID {id}");
+    return Results.Ok("hello world" + id);
+});
 
-app.UseAuthorization();
+//app.UseHttpsRedirection();
+//app.UseStaticFiles();
 
-app.MapRazorPages();
+//app.UseRouting();
+
+//app.UseAuthorization();
+
+//app.MapRazorPages();
 
 app.Run();
