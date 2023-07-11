@@ -7,6 +7,7 @@
     <UserSecretsId>6561dd42-f364-4436-b895-951d5afff86d</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
+    <Company>Pixiray.ninja</Company>
   </PropertyGroup>
 
   <ItemGroup>
